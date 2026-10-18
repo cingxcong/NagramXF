@@ -637,6 +637,46 @@ public class AyuData {
         }
     }
 
+    private static long copyStreamToFileBounded(InputStream inputStream, File targetFile, long maxBytes) throws IOException {
+        File parent = targetFile.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            throw new IOException("Unable to create directory " + parent.getAbsolutePath());
+        }
+        boolean complete = false;
+        long total = 0L;
+        try (BufferedOutputStream outputStream = new BufferedOutputStream(new FileOutputStream(targetFile))) {
+            byte[] buffer = new byte[IO_BUFFER_SIZE];
+            int read;
+            while ((read = inputStream.read(buffer)) != -1) {
+                if (read > maxBytes - total) {
+                    throw new IOException("Database import exceeds the 1 GiB uncompressed size limit");
+                }
+                outputStream.write(buffer, 0, read);
+                total += read;
+            }
+            outputStream.flush();
+            complete = true;
+            return total;
+        } finally {
+            if (!complete && targetFile.exists()) {
+                targetFile.delete();
+            }
+        }
+    }
+
+    private static long drainStreamBounded(InputStream inputStream, long maxBytes) throws IOException {
+        byte[] buffer = new byte[IO_BUFFER_SIZE];
+        long total = 0L;
+        int read;
+        while ((read = inputStream.read(buffer)) != -1) {
+            if (read > maxBytes - total) {
+                throw new IOException("Database backup archive exceeds the 1 GiB uncompressed size limit");
+            }
+            total += read;
+        }
+        return total;
+    }
+
     private static void copyStreamToFile(InputStream inputStream, File targetFile) throws IOException {
         File parent = targetFile.getParentFile();
         if (parent != null && !parent.exists() && !parent.mkdirs()) {
