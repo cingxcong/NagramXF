@@ -453,7 +453,7 @@ public class AyuData {
             if (isZipStream(bufferedInputStream)) {
                 extractDatabaseBackup(bufferedInputStream, importDir, dbFile.getName());
             } else {
-                copyStreamToFile(bufferedInputStream, importDbFile);
+                copyStreamToFileBounded(bufferedInputStream, importDbFile, MAX_DATABASE_IMPORT_BYTES);
             }
 
             if (!importDbFile.exists() || importDbFile.length() == 0L) {
@@ -512,7 +512,7 @@ public class AyuData {
                 ? (BufferedInputStream) inputStream
                 : new BufferedInputStream(inputStream);
         if (!isZipStream(bufferedInputStream)) {
-            copyStreamToFile(bufferedInputStream, targetFile);
+            copyStreamToFileBounded(bufferedInputStream, targetFile, MAX_DATABASE_IMPORT_BYTES);
             return targetFile.length() > 0L;
         }
         try (ZipInputStream zipInputStream = new ZipInputStream(bufferedInputStream)) {
@@ -525,7 +525,7 @@ public class AyuData {
                 String entryName = new File(entry.getName()).getName();
                 // 合并/探测只需要已 checkpoint 的主库，忽略 -wal / -shm
                 if (AyuConstants.AYU_DATABASE.equals(entryName)) {
-                    copyStreamToFile(zipInputStream, targetFile);
+                    copyStreamToFileBounded(zipInputStream, targetFile, MAX_DATABASE_IMPORT_BYTES);
                     zipInputStream.closeEntry();
                     return targetFile.length() > 0L;
                 }
