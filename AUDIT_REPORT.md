@@ -9,6 +9,10 @@
 
 Reviewed the current `canary` baseline and the patch branch for targeted correctness, lifecycle, remote-data parsing, file-import, native loading, installer fallback, and authentication-token handling. The changes below are based on source inspection. This environment could not clone the repository for a local checkout and has no Android SDK/Gradle installation, so no local compile, unit test, instrumentation test, or device smoke test has been run. GitHub reported no status checks/workflow runs for the branch head at the time of review.
 
+## CI follow-up
+
+The Canary build workflow now also triggers for pull requests targeting `canary`, with the commit SHA selected correctly for pull-request events. This makes the existing Gradle build eligible to validate future PR updates. No run or status check has appeared for the latest head in the GitHub API yet, so CI is still **unverified**.
+
 ## Fixes committed on this branch
 
 - **ReplyMessageLine:** correct sticker drawable detach lifecycle; use the selected palette for collectible gradient colors; clear stale state when the palette is empty.
