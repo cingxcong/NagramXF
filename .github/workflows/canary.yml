@@ -1,6 +1,13 @@
 name: Canary build
 
 on:
+  pull_request:
+    branches:
+      - canary
+    paths-ignore:
+      - '**.md'
+      - '.github/**'
+      - '!.github/workflows/canary.yml'
   push:
     branches:
       - canary
@@ -77,7 +84,7 @@ jobs:
           cat gradle.properties
       - name: Canary Build
         env:
-          COMMIT_ID: ${{ github.event.head_commit.id }}
+          COMMIT_ID: ${{ github.event.pull_request.head.sha || github.event.head_commit.id || github.sha }}
         run: |
           export LOCAL_PROPERTIES="${{ secrets.LOCAL_PROPERTIES }}"
           export BUILD_TIMESTAMP=$(date +%s)
