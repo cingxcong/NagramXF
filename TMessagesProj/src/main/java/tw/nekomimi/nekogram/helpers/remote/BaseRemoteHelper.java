@@ -78,6 +78,10 @@ public abstract class BaseRemoteHelper {
 
     private void onGetMessageSuccess(TLObject response, Delegate delegate) {
         var tag = "#" + getTag();
+        if (!(response instanceof TLRPC.messages_Messages)) {
+            onError("Unexpected response type while loading remote metadata", delegate);
+            return;
+        }
         final var res = (TLRPC.messages_Messages) response;
         getMessagesController().removeDeletedMessagesFromArray(CHANNEL_METADATA_ID, res.messages);
         ArrayList<JSONObject> responses = new ArrayList<>();
@@ -115,9 +119,11 @@ public abstract class BaseRemoteHelper {
             req1.username = CHANNEL_METADATA_NAME;
             getConnectionsManager().sendRequest(req1, (response1, error1) -> {
                 if (error1 != null) {
+                    onError(error1.text, delegate);
                     return;
                 }
                 if (!(response1 instanceof TLRPC.TL_contacts_resolvedPeer)) {
+                    onError("Unexpected response while resolving remote metadata channel", delegate);
                     return;
                 }
                 TLRPC.TL_contacts_resolvedPeer resolvedPeer = (TLRPC.TL_contacts_resolvedPeer) response1;
@@ -125,6 +131,7 @@ public abstract class BaseRemoteHelper {
                 getMessagesController().putChats(resolvedPeer.chats, false);
                 getMessagesStorage().putUsersAndChats(resolvedPeer.users, resolvedPeer.chats, false, true);
                 if ((resolvedPeer.chats == null || resolvedPeer.chats.size() == 0)) {
+                    onError("Remote metadata channel resolved without a chat", delegate);
                     return;
                 }
                 req.peer = new TLRPC.TL_inputPeerChannel();
