@@ -1233,20 +1233,27 @@ public class StickersActivity extends BaseFragment implements NotificationCenter
                 String tempFile = UUID.randomUUID().toString().replace("-", "") + ".nekox-stickers.json";
                 File file = new File(cacheDir.getPath(), tempFile);
                 try {
-                    final InputStream inputStream = ApplicationLoader.applicationContext.getContentResolver().openInputStream(uri);
-                    if (inputStream != null) {
-                        OutputStream outputStream = new FileOutputStream(file);
-                        final byte[] buffer = new byte[4 * 1024];
-                        int read;
-                        while ((read = inputStream.read(buffer)) != -1) {
-                            outputStream.write(buffer, 0, read);
+                    try (InputStream inputStream = ApplicationLoader.applicationContext.getContentResolver().openInputStream(uri)) {
+                        if (inputStream == null) {
+                            throw new java.io.IOException("Unable to open selected sticker backup");
                         }
-                        inputStream.close();
-                        outputStream.flush();
-                        outputStream.close();
+                        try (OutputStream outputStream = new FileOutputStream(file)) {
+                            final byte[] buffer = new byte[4 * 1024];
+                            int read;
+                            long totalBytes = 0;
+                            while ((read = inputStream.read(buffer)) != -1) {
+                                totalBytes += read;
+                                if (totalBytes > 3 * 1024 * 1024L) {
+                                    throw new java.io.IOException("Sticker backup exceeds 3 MB");
+                                }
+                                outputStream.write(buffer, 0, read);
+                            }
+                        }
                         processStickersFile(file, false);
                     }
-                } catch (Exception ignore) {
+                } catch (Exception e) {
+                    file.delete();
+                    showError("Could not import selected sticker backup.", false);
                 }
             }
             super.onActivityResultFragment(requestCode, resultCode, data);
