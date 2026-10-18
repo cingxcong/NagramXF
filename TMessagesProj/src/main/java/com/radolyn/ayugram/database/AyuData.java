@@ -50,6 +50,7 @@ public class AyuData {
     public static long dbSize, attachmentsSize, totalSize;
     private static AyuDatabase database;
     private static final int IO_BUFFER_SIZE = 16 * 1024;
+    private static final long MAX_DATABASE_IMPORT_BYTES = 1024L * 1024L * 1024L;
 
     // DAO 全部经 LockedDao 代理：调用时在读锁内现取真实 DAO，因此这些引用永不为 null，
     // 也不会在 closeDatabase() 之后变成悬空引用。详见 AyuDataLock。
