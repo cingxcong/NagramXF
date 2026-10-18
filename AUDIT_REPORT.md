@@ -9,10 +9,6 @@
 
 Reviewed the current `canary` baseline and the patch branch for targeted correctness, lifecycle, remote-data parsing, file-import, native loading, installer fallback, and authentication-token handling. The changes below are based on source inspection. This environment could not clone the repository for a local checkout and has no Android SDK/Gradle installation, so no local compile, unit test, instrumentation test, or device smoke test has been run. GitHub reported no status checks/workflow runs for the branch head at the time of review.
 
-## CI follow-up
-
-The Canary build workflow now also triggers for pull requests targeting `canary`, with the commit SHA selected correctly for pull-request events. This makes the existing Gradle build eligible to validate future PR updates. No run or status check has appeared for the latest head in the GitHub API yet, so CI is still **unverified**.
-
 ## Fixes committed on this branch
 
 - **ReplyMessageLine:** correct sticker drawable detach lifecycle; use the selected palette for collectible gradient colors; clear stale state when the palette is empty.
@@ -22,6 +18,7 @@ The Canary build workflow now also triggers for pull requests targeting `canary`
 - **ApplicationLoader:** report APK installer success only after the launch call succeeds, preserving fallback behavior after launch failures.
 - **NativeLoader:** allow native-library fallback attempts to continue after a failed load.
 - **StickersActivity:** stream content URI imports with resource cleanup and enforce the 3 MiB cap during copying; remove partial files after failure.
+- **AyuData database import:** cap raw imports and ZIP archive decompression at 1 GiB total, including skipped archive entries; remove partially written files when a bounded copy fails.
 - **OpenChatReceiver / OpenAttachedMenuBotReceiver:** finish activity on invalid input and caught failures.
 - **FileRefController:** avoid skipping common reference-update handling when recovering a bot profile media reference.
 - **NekoMessageCell:** reset interrupted press/long-press state on detach.
@@ -35,8 +32,8 @@ The Canary build workflow now also triggers for pull requests targeting `canary`
 ### Medium priority — cleartext traffic is allowed globally
 The manifest sets `android:usesCleartextTraffic="true"`, and `network_security_config.xml` permits cleartext in the base config. The manifest comment says this supports opening `http://` links. Prefer handling external HTTP links in a browser/intent without granting the entire app cleartext access, but this requires a compatibility audit of internal HTTP clients and link handling. No behavior change was made here.
 
-### Medium priority — imported database/archive size is not globally bounded
-The database import/ZIP extraction path identified during review does not enforce an aggregate uncompressed-size cap. The existing entry-name filtering helps with path traversal, but very large inputs could still exhaust storage or memory. Establish a limit based on realistic backup sizes and enforce both per-entry and total extracted bytes before shipping. No limit was added because a safe product limit needs evidence about legitimate user backup sizes.
+### Medium priority — validate the 1 GiB database/archive import cap
+The import path now rejects raw database inputs or ZIP content that exceeds 1 GiB of uncompressed data, including skipped archive entries. This reduces disk-exhaustion and ZIP-bomb exposure. Confirm that 1 GiB is compatible with legitimate user backups and test exact-boundary, over-limit, truncated, duplicate-entry, and malformed-archive cases before release.
 
 ### Low priority — reaction counter rendering order
 A possible draw-order issue was observed where alpha may be assigned after a drawable's draw call. This has not been reproduced, and it should be confirmed with a focused visual/runtime test before changing rendering behavior.
@@ -47,8 +44,8 @@ A possible draw-order issue was observed where alpha may be assigned after a dra
 - [ ] Run available tests and inspect lint/compiler output.
 - [ ] Smoke-test: reply line/sticker detach and dark collectible gradient; cached preview rules (fresh, stale, corrupt, malformed regex); remote-helper error callbacks; update metadata without ABI/document; APK install failure fallback; native load fallback; 3 MiB sticker import boundary and copy failure cleanup; deep-link receiver invalid inputs; bot media reference recovery; message-cell detach during long press.
 - [ ] Decide whether token preferences should be included in Android backup and whether cleartext policy can be narrowed.
-- [ ] Add an aggregate database import/extraction size cap after choosing a compatible threshold.
-- [ ] Re-check GitHub Actions on the final PR head before merge.
+- [ ] Validate the 1 GiB database import/extraction cap against legitimate backups and test exact-boundary and over-limit cases.
+- [ ] Arrange a supported CI build for the PR head; the current base workflow does not trigger on pull requests, and the local environment cannot build Android.
 
 ## Recommendation
 
@@ -65,3 +62,8 @@ I also checked the exact `canary` base commit (`385dc54a0f60682311a423f6f7eeee0b
 - `AuthTokensHelper`: debug logging prints `future_auth_token` content. This branch removes that log.
 
 These were verified against the exact base commit's source, so the changes are targeted corrections rather than assuming an upstream commit already contains them. The repository's `canary` branch is the PR target; no merge or release is performed by this audit.
+
+
+## CI limitation
+
+The existing Canary workflow in the target base branch is push-triggered for `canary`, not pull-request-triggered. A workflow edit inside this draft cannot reliably trigger its own validation because GitHub evaluates pull-request workflows from the base branch. The attempted workflow-only change was reverted rather than presenting it as a working validation path. No successful CI run or local Android build is available for this branch at present.
