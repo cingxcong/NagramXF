@@ -520,6 +520,7 @@ public class AyuData {
             long totalUncompressedBytes = 0L;
             while ((entry = zipInputStream.getNextEntry()) != null) {
                 if (entry.isDirectory()) {
+                    totalUncompressedBytes += drainStreamBounded(zipInputStream, MAX_DATABASE_IMPORT_BYTES - totalUncompressedBytes);
                     zipInputStream.closeEntry();
                     continue;
                 }
@@ -553,6 +554,7 @@ public class AyuData {
             long totalUncompressedBytes = 0L;
             while ((entry = zipInputStream.getNextEntry()) != null) {
                 if (entry.isDirectory()) {
+                    totalUncompressedBytes += drainStreamBounded(zipInputStream, MAX_DATABASE_IMPORT_BYTES - totalUncompressedBytes);
                     zipInputStream.closeEntry();
                     continue;
                 }
