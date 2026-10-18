@@ -49,3 +49,15 @@ A possible draw-order issue was observed where alpha may be assigned after a dra
 ## Recommendation
 
 Keep this branch isolated until build and targeted regression checks pass. This report is not a claim of a complete exhaustive review of every file or a release-ready validation.
+
+
+## Cross-check against the upstream Canary baseline
+
+I also checked the exact `canary` base commit (`385dc54a0f60682311a423f6f7eeee0b3efad9ab`) rather than assuming a similar upstream implementation had already fixed these defects. The source at that baseline still contains the following patterns that this branch changes:
+
+- `ReplyMessageLine`: the sticker's detach callback calls `attach()`; collectible gradient values are read from `p.colors` even when a dark palette was selected.
+- `PagePreviewRulesHelper`: `onError` is empty; the TTL is `15 * 60` while timestamps use milliseconds; the loading guard is reset immediately after starting asynchronous loading; cached payload decoding is not fully guarded.
+- `BaseRemoteHelper`: several remote-channel resolution and response-type failure paths do not invoke the error delegate.
+- `AuthTokensHelper`: debug logging prints `future_auth_token` content. This branch removes that log.
+
+These were verified against the exact base commit's source, so the changes are targeted corrections rather than assuming an upstream commit already contains them. The repository's `canary` branch is the PR target; no merge or release is performed by this audit.
