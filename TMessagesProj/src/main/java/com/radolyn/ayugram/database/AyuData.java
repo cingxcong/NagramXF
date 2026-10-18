@@ -50,6 +50,7 @@ public class AyuData {
     public static long dbSize, attachmentsSize, totalSize;
     private static AyuDatabase database;
     private static final int IO_BUFFER_SIZE = 16 * 1024;
+    private static final long MAX_DATABASE_IMPORT_BYTES = 1024L * 1024L * 1024L;
 
     // DAO 全部经 LockedDao 代理：调用时在读锁内现取真实 DAO，因此这些引用永不为 null，
     // 也不会在 closeDatabase() 之后变成悬空引用。详见 AyuDataLock。
@@ -452,7 +453,7 @@ public class AyuData {
             if (isZipStream(bufferedInputStream)) {
                 extractDatabaseBackup(bufferedInputStream, importDir, dbFile.getName());
             } else {
-                copyStreamToFile(bufferedInputStream, importDbFile);
+                copyStreamToFileBounded(bufferedInputStream, importDbFile, MAX_DATABASE_IMPORT_BYTES);
             }
 
             if (!importDbFile.exists() || importDbFile.length() == 0L) {
@@ -511,23 +512,26 @@ public class AyuData {
                 ? (BufferedInputStream) inputStream
                 : new BufferedInputStream(inputStream);
         if (!isZipStream(bufferedInputStream)) {
-            copyStreamToFile(bufferedInputStream, targetFile);
+            copyStreamToFileBounded(bufferedInputStream, targetFile, MAX_DATABASE_IMPORT_BYTES);
             return targetFile.length() > 0L;
         }
         try (ZipInputStream zipInputStream = new ZipInputStream(bufferedInputStream)) {
             ZipEntry entry;
+            long totalUncompressedBytes = 0L;
             while ((entry = zipInputStream.getNextEntry()) != null) {
                 if (entry.isDirectory()) {
+                    totalUncompressedBytes += drainStreamBounded(zipInputStream, MAX_DATABASE_IMPORT_BYTES - totalUncompressedBytes);
                     zipInputStream.closeEntry();
                     continue;
                 }
                 String entryName = new File(entry.getName()).getName();
                 // 合并/探测只需要已 checkpoint 的主库，忽略 -wal / -shm
                 if (AyuConstants.AYU_DATABASE.equals(entryName)) {
-                    copyStreamToFile(zipInputStream, targetFile);
+                    copyStreamToFileBounded(zipInputStream, targetFile, MAX_DATABASE_IMPORT_BYTES - totalUncompressedBytes);
                     zipInputStream.closeEntry();
                     return targetFile.length() > 0L;
                 }
+                totalUncompressedBytes += drainStreamBounded(zipInputStream, MAX_DATABASE_IMPORT_BYTES - totalUncompressedBytes);
                 zipInputStream.closeEntry();
             }
         }
@@ -547,8 +551,10 @@ public class AyuData {
     private static void extractDatabaseBackup(InputStream inputStream, File targetDir, String databaseName) throws IOException {
         try (ZipInputStream zipInputStream = new ZipInputStream(inputStream)) {
             ZipEntry entry;
+            long totalUncompressedBytes = 0L;
             while ((entry = zipInputStream.getNextEntry()) != null) {
                 if (entry.isDirectory()) {
+                    totalUncompressedBytes += drainStreamBounded(zipInputStream, MAX_DATABASE_IMPORT_BYTES - totalUncompressedBytes);
                     zipInputStream.closeEntry();
                     continue;
                 }
@@ -557,12 +563,13 @@ public class AyuData {
                 if (!databaseName.equals(entryName)
                         && !(databaseName + "-wal").equals(entryName)
                         && !(databaseName + "-shm").equals(entryName)) {
+                    totalUncompressedBytes += drainStreamBounded(zipInputStream, MAX_DATABASE_IMPORT_BYTES - totalUncompressedBytes);
                     zipInputStream.closeEntry();
                     continue;
                 }
 
                 File outFile = new File(targetDir, entryName);
-                copyStreamToFile(zipInputStream, outFile);
+                totalUncompressedBytes += copyStreamToFileBounded(zipInputStream, outFile, MAX_DATABASE_IMPORT_BYTES - totalUncompressedBytes);
                 zipInputStream.closeEntry();
             }
         }
@@ -634,6 +641,46 @@ public class AyuData {
                 }
             }
         }
+    }
+
+    private static long copyStreamToFileBounded(InputStream inputStream, File targetFile, long maxBytes) throws IOException {
+        File parent = targetFile.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            throw new IOException("Unable to create directory " + parent.getAbsolutePath());
+        }
+        boolean complete = false;
+        long total = 0L;
+        try (BufferedOutputStream outputStream = new BufferedOutputStream(new FileOutputStream(targetFile))) {
+            byte[] buffer = new byte[IO_BUFFER_SIZE];
+            int read;
+            while ((read = inputStream.read(buffer)) != -1) {
+                if (read > maxBytes - total) {
+                    throw new IOException("Database import exceeds the 1 GiB uncompressed size limit");
+                }
+                outputStream.write(buffer, 0, read);
+                total += read;
+            }
+            outputStream.flush();
+            complete = true;
+            return total;
+        } finally {
+            if (!complete && targetFile.exists()) {
+                targetFile.delete();
+            }
+        }
+    }
+
+    private static long drainStreamBounded(InputStream inputStream, long maxBytes) throws IOException {
+        byte[] buffer = new byte[IO_BUFFER_SIZE];
+        long total = 0L;
+        int read;
+        while ((read = inputStream.read(buffer)) != -1) {
+            if (read > maxBytes - total) {
+                throw new IOException("Database backup archive exceeds the 1 GiB uncompressed size limit");
+            }
+            total += read;
+        }
+        return total;
     }
 
     private static void copyStreamToFile(InputStream inputStream, File targetFile) throws IOException {

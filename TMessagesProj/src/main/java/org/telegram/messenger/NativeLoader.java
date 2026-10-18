@@ -87,7 +87,7 @@ public class NativeLoader {
             } catch (Error e) {
                 FileLog.e(e);
             }
-            return true;
+            return nativeLoaded;
         } catch (Exception e) {
             FileLog.e(e);
         } finally {

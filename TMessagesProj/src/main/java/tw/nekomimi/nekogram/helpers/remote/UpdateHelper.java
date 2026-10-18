@@ -51,7 +51,9 @@ public class UpdateHelper extends BaseRemoteHelper {
 
     @Override
     protected void onError(String text, Delegate delegate) {
-        delegate.onTLResponse(null, text);
+        if (delegate != null) {
+            delegate.onTLResponse(null, text);
+        }
     }
 
     @Override
@@ -61,7 +63,7 @@ public class UpdateHelper extends BaseRemoteHelper {
     }
 
     @SuppressWarnings("ConstantConditions")
-    private int getPreferredAbiFile(Map<String, Integer> files) {
+    private Integer getPreferredAbiFile(Map<String, Integer> files) {
         for (String abi : Build.SUPPORTED_ABIS) {
             if (files.containsKey(abi)) {
                 return files.get(abi);
@@ -191,7 +193,10 @@ public class UpdateHelper extends BaseRemoteHelper {
             ids.put("message", update.message);
         }
         if (update.document != null) {
-            ids.put("document", getPreferredAbiFile(update.document));
+            Integer documentId = getPreferredAbiFile(update.document);
+            if (documentId != null && documentId > 0) {
+                ids.put("document", documentId);
+            }
         }
         if (ids.isEmpty()) {
             getNewVersionMessagesCallback(delegate, update, null, null);

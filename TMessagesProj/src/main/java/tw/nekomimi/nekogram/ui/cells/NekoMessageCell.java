@@ -207,6 +207,8 @@ public class NekoMessageCell extends ChatMessageCell {
             removeCallbacks(longPressRunnable);
             longPressRunnable = null;
         }
+        avatarPressedDown = false;
+        urlLongPressHandled = false;
     }
 
     private void copyText() {

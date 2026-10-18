@@ -41,7 +41,7 @@ public class PagePreviewRulesHelper extends BaseRemoteHelper {
 
     @Override
     protected void onError(String text, Delegate delegate) {
-
+        loading = false;
     }
 
     @Override
@@ -58,6 +58,7 @@ public class PagePreviewRulesHelper extends BaseRemoteHelper {
                     .remove(tag + "_update_time")
                     .remove(tag)
                     .apply();
+            loading = false;
             return;
         }
 
@@ -107,6 +108,8 @@ public class PagePreviewRulesHelper extends BaseRemoteHelper {
             savePagePreviewRules();
         } catch (JSONException e) {
             FileLog.e(e);
+        } finally {
+            loading = false;
         }
     }
 
@@ -116,22 +119,37 @@ public class PagePreviewRulesHelper extends BaseRemoteHelper {
         domains.clear();
         domainsRegex.clear();
         domainsMap.clear();
-        if (!TextUtils.isEmpty(list)) {
+        if (TextUtils.isEmpty(list)) {
+            return;
+        }
+
+        SerializedData data = null;
+        try {
             byte[] bytes = Base64.decode(list, Base64.DEFAULT);
-            SerializedData data = new SerializedData(bytes);
+            data = new SerializedData(bytes);
             int count = data.readInt32(false);
-            try {
-                for (int a = 0; a < count; a++) {
-                    DomainInfo info = DomainInfo.deserialize(data);
-                    domains.add(info);
-                    if (info.regex) {
-                        domainsRegex.add(info);
-                    } else {
-                        domainsMap.put(info.domain, info);
-                    }
+            if (count < 0 || count > 10000) {
+                throw new IllegalStateException("Invalid cached page preview rule count: " + count);
+            }
+            for (int a = 0; a < count; a++) {
+                DomainInfo info = DomainInfo.deserialize(data);
+                domains.add(info);
+                if (info.regex) {
+                    domainsRegex.add(info);
+                } else {
+                    domainsMap.put(info.domain, info);
                 }
-            } catch (RuntimeException ignored) {}
-            data.cleanup();
+            }
+        } catch (RuntimeException e) {
+            domains.clear();
+            domainsRegex.clear();
+            domainsMap.clear();
+            preferences.edit().remove(tag).remove(tag + "_update_time").apply();
+            FileLog.e(e);
+        } finally {
+            if (data != null) {
+                data.cleanup();
+            }
         }
     }
 
@@ -153,7 +171,7 @@ public class PagePreviewRulesHelper extends BaseRemoteHelper {
         var tag = getTag();
         long oldTime = preferences.getLong(tag + "_update_time", 0L);
         long nowTime = System.currentTimeMillis();
-        int TTL = 15 * 60;
+        int TTL = 15 * 60 * 1000;
         return oldTime + TTL <= nowTime;
     }
 
@@ -168,8 +186,9 @@ public class PagePreviewRulesHelper extends BaseRemoteHelper {
         loadPagePreviewRules();
         if (needUpdate()) {
             load();
+        } else {
+            loading = false;
         }
-        loading = false;
     }
 
     public String doRegex(CharSequence textToCheck) {
@@ -193,10 +212,14 @@ public class PagePreviewRulesHelper extends BaseRemoteHelper {
             return oldUrl;
         }
         for (DomainRule rule : info.rules) {
-            Pattern regex = rule.getRegexPattern();
-            Matcher matcher = regex.matcher(oldUrl);
-            if (matcher.find()) {
-                oldUrl = matcher.replaceAll(rule.replace);
+            try {
+                Pattern regex = rule.getRegexPattern();
+                Matcher matcher = regex.matcher(oldUrl);
+                if (matcher.find()) {
+                    oldUrl = matcher.replaceAll(rule.replace);
+                }
+            } catch (RuntimeException e) {
+                FileLog.e(e);
             }
         }
         return oldUrl;
@@ -247,7 +270,12 @@ public class PagePreviewRulesHelper extends BaseRemoteHelper {
 
         public void buildRegexPattern() {
             if (this.regex && this.domain != null) {
-                this.regexPattern = Pattern.compile(domain);
+                try {
+                    this.regexPattern = Pattern.compile(domain);
+                } catch (RuntimeException e) {
+                    this.regexPattern = null;
+                    FileLog.e(e);
+                }
             }
         }
 

@@ -25,10 +25,12 @@ public class OpenAttachedMenuBotReceiver extends Activity {
         try {
             long botId = intent.getLongExtra("botId", 0);
             if (botId == 0) {
+                finish();
                 return;
             }
         } catch (Throwable e) {
             FileLog.e(e);
+            finish();
             return;
         }
         Intent intent2 = new Intent(this, LaunchActivity.class);
