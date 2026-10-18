@@ -33,10 +33,12 @@ public class OpenChatReceiver extends Activity {
             long userId = intent.getLongExtra("userId", intent.getIntExtra("userId", 0));
             int encId = intent.getIntExtra("encId", 0);
             if (chatId == 0 && userId == 0 && encId == 0) {
+                finish();
                 return;
             }
         } catch (Throwable e) {
             FileLog.e(e);
+            finish();
             return;
         }
         Intent intent2 = new Intent(this, LaunchActivity.class);
