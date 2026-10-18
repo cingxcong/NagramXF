@@ -41,7 +41,7 @@ public class PagePreviewRulesHelper extends BaseRemoteHelper {
 
     @Override
     protected void onError(String text, Delegate delegate) {
-
+        loading = false;
     }
 
     @Override
@@ -58,6 +58,7 @@ public class PagePreviewRulesHelper extends BaseRemoteHelper {
                     .remove(tag + "_update_time")
                     .remove(tag)
                     .apply();
+            loading = false;
             return;
         }
 
@@ -108,6 +109,7 @@ public class PagePreviewRulesHelper extends BaseRemoteHelper {
         } catch (JSONException e) {
             FileLog.e(e);
         }
+        loading = false;
     }
 
     public void loadPagePreviewRules() {
@@ -153,7 +155,7 @@ public class PagePreviewRulesHelper extends BaseRemoteHelper {
         var tag = getTag();
         long oldTime = preferences.getLong(tag + "_update_time", 0L);
         long nowTime = System.currentTimeMillis();
-        int TTL = 15 * 60;
+        int TTL = 15 * 60 * 1000;
         return oldTime + TTL <= nowTime;
     }
 
@@ -168,8 +170,9 @@ public class PagePreviewRulesHelper extends BaseRemoteHelper {
         loadPagePreviewRules();
         if (needUpdate()) {
             load();
+        } else {
+            loading = false;
         }
-        loading = false;
     }
 
     public String doRegex(CharSequence textToCheck) {
