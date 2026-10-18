@@ -517,6 +517,7 @@ public class AyuData {
         }
         try (ZipInputStream zipInputStream = new ZipInputStream(bufferedInputStream)) {
             ZipEntry entry;
+            long totalUncompressedBytes = 0L;
             while ((entry = zipInputStream.getNextEntry()) != null) {
                 if (entry.isDirectory()) {
                     zipInputStream.closeEntry();
@@ -525,10 +526,11 @@ public class AyuData {
                 String entryName = new File(entry.getName()).getName();
                 // 合并/探测只需要已 checkpoint 的主库，忽略 -wal / -shm
                 if (AyuConstants.AYU_DATABASE.equals(entryName)) {
-                    copyStreamToFileBounded(zipInputStream, targetFile, MAX_DATABASE_IMPORT_BYTES);
+                    copyStreamToFileBounded(zipInputStream, targetFile, MAX_DATABASE_IMPORT_BYTES - totalUncompressedBytes);
                     zipInputStream.closeEntry();
                     return targetFile.length() > 0L;
                 }
+                totalUncompressedBytes += drainStreamBounded(zipInputStream, MAX_DATABASE_IMPORT_BYTES - totalUncompressedBytes);
                 zipInputStream.closeEntry();
             }
         }
