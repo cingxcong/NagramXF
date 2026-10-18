@@ -1239,11 +1239,9 @@ public class FileRefController extends BaseController {
 
                     result = getFileReference(botInfo.description_document, null, requester.location, needReplacement, locationReplacement);
 
-                    if (result != null) {
-                        continue;
+                    if (result == null) {
+                        result = getFileReference(botInfo.description_photo, requester.location, needReplacement, locationReplacement);
                     }
-
-                    result = getFileReference(botInfo.description_photo, requester.location, needReplacement, locationReplacement);
                 }
             } else if (response instanceof TLRPC.TL_attachMenuBotsBot) {
                 TLRPC.TL_attachMenuBot bot = ((TLRPC.TL_attachMenuBotsBot) response).bot;
