@@ -548,6 +548,7 @@ public class AyuData {
     private static void extractDatabaseBackup(InputStream inputStream, File targetDir, String databaseName) throws IOException {
         try (ZipInputStream zipInputStream = new ZipInputStream(inputStream)) {
             ZipEntry entry;
+            long totalUncompressedBytes = 0L;
             while ((entry = zipInputStream.getNextEntry()) != null) {
                 if (entry.isDirectory()) {
                     zipInputStream.closeEntry();
@@ -558,12 +559,13 @@ public class AyuData {
                 if (!databaseName.equals(entryName)
                         && !(databaseName + "-wal").equals(entryName)
                         && !(databaseName + "-shm").equals(entryName)) {
+                    totalUncompressedBytes += drainStreamBounded(zipInputStream, MAX_DATABASE_IMPORT_BYTES - totalUncompressedBytes);
                     zipInputStream.closeEntry();
                     continue;
                 }
 
                 File outFile = new File(targetDir, entryName);
-                copyStreamToFile(zipInputStream, outFile);
+                totalUncompressedBytes += copyStreamToFileBounded(zipInputStream, outFile, MAX_DATABASE_IMPORT_BYTES - totalUncompressedBytes);
                 zipInputStream.closeEntry();
             }
         }
