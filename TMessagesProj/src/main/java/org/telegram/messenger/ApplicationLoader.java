@@ -849,7 +849,7 @@ public class ApplicationLoader extends Application {
         try {
             String fileName = FileLoader.getAttachFileName(document);
             File f = FileLoader.getInstance(UserConfig.selectedAccount).getPathToAttach(document, true);
-            if (exists = f.exists()) {
+            if (f.exists()) {
                 Intent intent = new Intent(Intent.ACTION_VIEW);
                 intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
@@ -860,6 +860,7 @@ public class ApplicationLoader extends Application {
                 }
                 try {
                     activity.startActivityForResult(intent, 500);
+                    exists = true;
                 } catch (Exception e) {
                     FileLog.e(e);
                 }
