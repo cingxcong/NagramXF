@@ -93,7 +93,7 @@ public class ReplyMessageLine {
                         emoji.detach();
                     }
                     if (sticker != null) {
-                        sticker.attach();
+                        sticker.detach();
                     }
                 }
             });
@@ -177,7 +177,21 @@ public class ReplyMessageLine {
         final ArrayList<Integer> colors = dark && (p.flags & 2) != 0 ? p.dark_colors : p.colors;
 
         if (colors == null || colors.isEmpty()) {
-            return 0;
+            // Do not leave colors or animated-emoji IDs from the previous recycled line.
+            reversedOut = false;
+            hasColor2 = hasColor3 = false;
+            color1 = color2 = color3 = accent_color | 0xFF000000;
+            nameColor = accent_color | 0xFF000000;
+            backgroundColor = Theme.multAlpha(nameColor, 0.10f);
+            emojiColor = nameColor;
+            emojiDocumentId = stickerDocumentId = 0;
+            if (emoji != null) {
+                emoji.set(0, true);
+            }
+            if (sticker != null) {
+                sticker.set(0, true);
+            }
+            return nameColorAnimated.set(nameColor);
         }
 
         if (wasCollectionId != p.collectible_id) {
@@ -191,12 +205,12 @@ public class ReplyMessageLine {
         }
 
         reversedOut = false;
-        color1 = p.colors.get(0) | 0xFF000000;
+        color1 = colors.get(0) | 0xFF000000;
         if (hasColor2 = colors.size() >= 2) {
-            color2 = p.colors.get(1) | 0xFF000000;
+            color2 = colors.get(1) | 0xFF000000;
         }
         if (hasColor3 = colors.size() >= 3) {
-            color3 = p.colors.get(2) | 0xFF000000;
+            color3 = colors.get(2) | 0xFF000000;
         }
         nameColor = accent_color | 0xFF000000;
         backgroundColor = Theme.multAlpha(nameColor, 0.10f);
