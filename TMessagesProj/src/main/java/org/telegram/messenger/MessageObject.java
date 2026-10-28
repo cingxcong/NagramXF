@@ -8672,7 +8672,9 @@ public class MessageObject {
             maxWidth = Math.min(maxWidth, (int) (generatedWithMinSize * .65f));
         }
         if (widePostsTextWidth > 0) {
-            maxWidth = widePostsTextWidth;
+            // Keep the regular layout's safety insets (avatar, side menu, and share actions).
+            // Wide Posts may narrow the text, but must not widen it beyond the available message width.
+            maxWidth = Math.min(maxWidth, widePostsTextWidth);
         }
         return maxWidth;
     }
